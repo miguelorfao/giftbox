@@ -12,6 +12,7 @@ import ProductDetails from "./pages/ProductDetails";
 import Basket from "./pages/Basket";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Dashboard from "./pages/Dashboard";
 
 function NotFound() {
   return (
@@ -47,7 +48,7 @@ export default function App() {
           <Route path="/about" element={<About />} />
 
           <Route path="/contact" element={<Contact />} />
-
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
 

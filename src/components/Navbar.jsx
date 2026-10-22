@@ -54,6 +54,9 @@ export default function Navbar() {
             <NavLink to="/contact" className="nav-link" onClick={closeMenu}>
               Contact
             </NavLink>
+            <NavLink to="/dashboard" className="nav-link" onClick={closeMenu}>
+              Admin
+            </NavLink>
 
             <Link
               to="/basket"
