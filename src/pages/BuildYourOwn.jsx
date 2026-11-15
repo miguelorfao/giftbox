@@ -1,50 +1,71 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Container, Row, Col } from "react-bootstrap";
 import { FiCheck, FiShoppingBag } from "react-icons/fi";
-import { hamperPackages, hamperItems } from "../data/hamperItems";
+import { hamperPackages } from "../data/hamperItems";
 import { useCart } from "../context/CartContext";
 
 export default function BuildYourOwn() {
-  const [selectedPackage, setSelectedPackage] = useState(hamperPackages[1]);
-
+  const {
+    addToCart,
+    builderProducts,
+    settings,
+    catalogLoading,
+    catalogError,
+  } = useCart();
+  const packages = useMemo(() => {
+    if (!settings?.boxes) return hamperPackages;
+    return Object.entries(settings.boxes).map(([id, box]) => ({
+      id,
+      name: box.name,
+      price: box.priceMinor / 100,
+      maxItems: box.maxItems,
+      description: `Choose up to ${box.maxItems} gifts.`,
+    }));
+  }, [settings]);
+  const [selectedPackageId, setSelectedPackageId] = useState(
+    hamperPackages[1].id,
+  );
+  const selectedPackage =
+    packages.find((pkg) => pkg.id === selectedPackageId) || packages[0];
   const [selectedItems, setSelectedItems] = useState([]);
-
   const [category, setCategory] = useState("All");
-
   const [recipient, setRecipient] = useState("");
-
   const [message, setMessage] = useState("");
 
-  const { addToCart } = useCart();
+  useEffect(() => {
+    if (!packages.some((pkg) => pkg.id === selectedPackageId)) {
+      setSelectedPackageId(packages[1]?.id || packages[0]?.id);
+    }
+  }, [packages, selectedPackageId]);
 
   const categories = [
     "All",
-    ...new Set(hamperItems.map((item) => item.category)),
+    ...new Set(builderProducts.map((item) => item.category)),
   ];
 
   const filteredItems =
     category === "All"
-      ? hamperItems
-      : hamperItems.filter((item) => item.category === category);
+      ? builderProducts
+      : builderProducts.filter((item) => item.category === category);
 
   const upgradeTotal = useMemo(
     () => selectedItems.reduce((total, item) => total + item.price, 0),
     [selectedItems],
   );
 
-  const totalPrice = selectedPackage.price + upgradeTotal;
+  const totalPrice = selectedPackage
+    ? selectedPackage.price + upgradeTotal
+    : upgradeTotal;
 
-  const remainingItems = selectedPackage.maxItems - selectedItems.length;
+  const remainingItems = (selectedPackage?.maxItems || 0) - selectedItems.length;
 
   function changePackage(pkg) {
-    setSelectedPackage(pkg);
-
-    // Keep the current selection if possible.
-    // Otherwise, retain the first items that fit.
+    setSelectedPackageId(pkg.id);
     setSelectedItems((current) => current.slice(0, pkg.maxItems));
   }
 
   function toggleItem(item) {
+    if (!selectedPackage) return;
     const alreadySelected = selectedItems.some(
       (selected) => selected.id === item.id,
     );
@@ -69,6 +90,7 @@ export default function BuildYourOwn() {
   }
 
   function handleAddToBasket() {
+    if (!selectedPackage) return;
     if (selectedItems.length !== selectedPackage.maxItems) {
       window.alert(
         `Please select ${selectedPackage.maxItems} items before continuing.`,
@@ -83,6 +105,7 @@ export default function BuildYourOwn() {
       price: totalPrice,
       quantity: 1,
       packageName: selectedPackage.name,
+      image: selectedItems[0]?.image || "",
       selectedItems: selectedItems.map((item) => ({
         id: item.id,
         name: item.name,
@@ -91,6 +114,19 @@ export default function BuildYourOwn() {
       })),
       recipient,
       message,
+      customDetails: {
+        boxId: selectedPackage.id,
+        contents: selectedItems.map((item) => ({
+          productId: String(item.id),
+          quantity: 1,
+        })),
+        personalisation: {
+          recipient,
+          occasion: "",
+          giftMessage: message,
+          specialInstructions: "",
+        },
+      },
     };
 
     addToCart(customHamper);
@@ -125,15 +161,15 @@ export default function BuildYourOwn() {
           </div>
 
           <Row className="g-3">
-            {hamperPackages.map((pkg) => (
+            {packages.map((pkg) => (
               <Col md={4} key={pkg.id}>
                 <button
                   type="button"
                   className={`package-card ${
-                    selectedPackage.id === pkg.id ? "selected" : ""
+                    selectedPackage?.id === pkg.id ? "selected" : ""
                   }`}
                   onClick={() => changePackage(pkg)}
-                  aria-pressed={selectedPackage.id === pkg.id}
+                  aria-pressed={selectedPackage?.id === pkg.id}
                 >
                   <span className="package-name">{pkg.name}</span>
 
@@ -145,7 +181,7 @@ export default function BuildYourOwn() {
                     Up to {pkg.maxItems} items
                   </span>
 
-                  {selectedPackage.id === pkg.id && (
+                  {selectedPackage?.id === pkg.id && (
                     <span className="package-check">
                       <FiCheck />
                     </span>
@@ -166,15 +202,14 @@ export default function BuildYourOwn() {
               <h2>Choose your gifts</h2>
 
               <p>
-                Select {selectedPackage.maxItems} items. Premium upgrades cost
-                extra.
+                Select {selectedPackage?.maxItems || 0} items for your hamper.
               </p>
             </div>
           </div>
 
           <div className="selection-status">
             <span>
-              Selected: {selectedItems.length} / {selectedPackage.maxItems}
+              Selected: {selectedItems.length} / {selectedPackage?.maxItems || 0}
             </span>
 
             <span>
@@ -188,11 +223,16 @@ export default function BuildYourOwn() {
               className="item-progress-fill"
               style={{
                 width: `${
-                  (selectedItems.length / selectedPackage.maxItems) * 100
+                  selectedPackage
+                    ? (selectedItems.length / selectedPackage.maxItems) * 100
+                    : 0
                 }%`,
               }}
             />
           </div>
+
+          {catalogLoading && <p role="status">Loading hamper gifts...</p>}
+          {catalogError && <p role="alert">{catalogError}</p>}
 
           <div className="category-filters">
             {categories.map((item) => (
@@ -216,7 +256,7 @@ export default function BuildYourOwn() {
               );
 
               const limitReached =
-                selectedItems.length >= selectedPackage.maxItems;
+                selectedItems.length >= (selectedPackage?.maxItems || 0);
 
               return (
                 <Col sm={6} lg={3} key={item.id}>
@@ -250,11 +290,7 @@ export default function BuildYourOwn() {
                       <p className="text-muted small">{item.category}</p>
 
                       <div className="builder-product-bottom">
-                        <strong>
-                          {item.price === 0
-                            ? "Included"
-                            : `+£${item.price.toFixed(2)}`}
-                        </strong>
+                        <strong>+£{item.price.toFixed(2)}</strong>
 
                         <button
                           type="button"
@@ -302,7 +338,7 @@ export default function BuildYourOwn() {
                 className="form-control"
                 placeholder="Who is the gift for?"
                 value={recipient}
-                maxLength={100}
+                maxLength={50}
                 onChange={(event) => setRecipient(event.target.value)}
               />
             </Col>
@@ -318,12 +354,12 @@ export default function BuildYourOwn() {
                 rows="3"
                 placeholder="Write your message here..."
                 value={message}
-                maxLength={300}
+                maxLength={180}
                 onChange={(event) => setMessage(event.target.value)}
               />
 
               <small className="text-muted">
-                {message.length}/300 characters
+                {message.length}/180 characters
               </small>
             </Col>
           </Row>
@@ -336,13 +372,13 @@ export default function BuildYourOwn() {
             <h2>Your Hamper</h2>
 
             <p>
-              {selectedPackage.name} · {selectedItems.length} of{" "}
-              {selectedPackage.maxItems} items selected
+              {selectedPackage?.name || "Gift box"} · {selectedItems.length} of{" "}
+              {selectedPackage?.maxItems || 0} items selected
             </p>
 
-            <p>Package price: £{selectedPackage.price.toFixed(2)}</p>
+            <p>Package price: £{(selectedPackage?.price || 0).toFixed(2)}</p>
 
-            <p>Premium upgrades: £{upgradeTotal.toFixed(2)}</p>
+            <p>Gift items: £{upgradeTotal.toFixed(2)}</p>
 
             <h3 className="summary-total">Total: £{totalPrice.toFixed(2)}</h3>
           </div>
@@ -350,7 +386,10 @@ export default function BuildYourOwn() {
           <button
             type="button"
             className="btn-hamper summary-button"
-            disabled={selectedItems.length !== selectedPackage.maxItems}
+            disabled={
+              !selectedPackage ||
+              selectedItems.length !== selectedPackage.maxItems
+            }
             onClick={handleAddToBasket}
           >
             <FiShoppingBag className="me-2" />

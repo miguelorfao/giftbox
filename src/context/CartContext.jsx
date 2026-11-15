@@ -1,6 +1,15 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { catalogImageUrl, loadPublicCatalog } from "../storeApi";
 
 const CartContext = createContext(null);
+const fallbackImage =
+  "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&w=900&q=85";
 
 export function CartProvider({ children }) {
   const [cart, setCart] = useState(() => {
@@ -11,6 +20,53 @@ export function CartProvider({ children }) {
       return [];
     }
   });
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+
+  const refreshCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError("");
+    try {
+      const catalog = await loadPublicCatalog();
+      const categoryNames = new Map(
+        catalog.categories.map((category) => [category.id, category.name]),
+      );
+      setProducts(
+        catalog.products.map((product) => {
+          const category = (product.categoryIds || [])
+            .map((id) => categoryNames.get(id))
+            .filter(Boolean)
+            .join(", ");
+          return {
+            ...product,
+            price: product.priceMinor / 100,
+            stock:
+              product.status === "active" ? product.stockQuantity : 0,
+            category: category || "Gifts",
+            image: product.image
+              ? catalogImageUrl(product.image)
+              : fallbackImage,
+            longDescription: product.description,
+            includes: [],
+          };
+        }),
+      );
+      setCategories(catalog.categories);
+      setSettings(catalog.settings);
+    } catch (error) {
+      console.error("Could not load the shop catalog.", error);
+      setCatalogError("Gifts could not be loaded. Please try again.");
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshCatalog();
+  }, [refreshCatalog]);
 
   useEffect(() => {
     localStorage.setItem("hamper-cart", JSON.stringify(cart));
@@ -56,12 +112,28 @@ export function CartProvider({ children }) {
   }
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const builderProducts = products
+    .filter(
+      (product) =>
+        product.status === "active" && product.productType === "component",
+    )
+    .map((product) => ({
+      ...product,
+      note: product.note || product.description,
+    }));
 
   return (
     <CartContext.Provider
       value={{
         cart,
         total,
+        products,
+        categories,
+        builderProducts,
+        settings,
+        catalogLoading,
+        catalogError,
+        refreshCatalog,
         addToCart,
         removeFromCart,
         updateQuantity,

@@ -1,20 +1,26 @@
 import { useState } from "react";
 import { Container, Row, Col } from "react-bootstrap";
-import { products } from "../data/products";
 import ProductCard from "../components/ProductCard";
+import { useCart } from "../context/CartContext";
 
 export default function Shop() {
   const [category, setCategory] = useState("All");
+  const {
+    products,
+    categories: catalogCategories,
+    catalogLoading,
+    catalogError,
+  } = useCart();
 
   const categories = [
     "All",
-    ...new Set(products.map((product) => product.category)),
+    ...catalogCategories.map((item) => item.name),
   ];
 
   const filteredProducts =
     category === "All"
       ? products
-      : products.filter((product) => product.category === category);
+      : products.filter((product) => product.category.split(", ").includes(category));
 
   return (
     <section className="section-padding">
@@ -52,6 +58,8 @@ export default function Shop() {
           ))}
         </Row>
 
+        {catalogLoading && <p role="status">Loading gifts...</p>}
+        {catalogError && <p role="alert">{catalogError}</p>}
         {filteredProducts.length === 0 && (
           <p className="text-center mt-5">
             No products found in this category.

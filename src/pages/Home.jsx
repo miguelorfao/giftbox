@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
-import { products } from "../data/products";
 import ProductCard from "../components/ProductCard";
+import { useCart } from "../context/CartContext";
 
 export default function Home() {
+  const { products, catalogLoading, catalogError } = useCart();
   const featuredProducts = products.filter((product) => product.featured);
 
   return (
@@ -79,6 +80,9 @@ export default function Home() {
               </Col>
             ))}
           </Row>
+
+          {catalogLoading && <p role="status">Loading gifts...</p>}
+          {catalogError && <p role="alert">{catalogError}</p>}
 
           <div className="text-center mt-5">
             <Link to="/shop" className="btn-hamper">

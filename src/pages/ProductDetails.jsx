@@ -3,16 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import { FiShoppingBag, FiCheck, FiArrowLeft } from "react-icons/fi";
 
-import { products } from "../data/products";
 import { useCart } from "../context/CartContext";
 import ProductCard from "../components/ProductCard";
 
 export default function ProductDetails() {
   const { id } = useParams();
-
+  const { products, catalogLoading, catalogError, addToCart } = useCart();
   const product = products.find((item) => String(item.id) === id);
-
-  const { addToCart } = useCart();
 
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -20,9 +17,12 @@ export default function ProductDetails() {
   if (!product) {
     return (
       <Container className="section-padding text-center">
-        <h1>Product not found</h1>
+        <h1>{catalogLoading ? "Loading gift..." : "Product not found"}</h1>
 
-        <p>Sorry, we couldn't find the hamper you're looking for.</p>
+        <p>
+          {catalogError ||
+            "Sorry, we couldn't find the hamper you're looking for."}
+        </p>
 
         <Link to="/shop" className="btn-hamper">
           Return to Shop

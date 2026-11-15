@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 
-import { CartProvider } from "./context/CartContext";
+import { CartProvider, useCart } from "./context/CartContext";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -12,7 +12,7 @@ import ProductDetails from "./pages/ProductDetails";
 import Basket from "./pages/Basket";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
-import Dashboard from "./pages/Dashboard";
+import AdminPanel from "./AdminPanel";
 
 function NotFound() {
   return (
@@ -25,6 +25,19 @@ function NotFound() {
         Return Home
       </a>
     </main>
+  );
+}
+
+function AdminRoute() {
+  const navigate = useNavigate();
+  const { refreshCatalog } = useCart();
+  return (
+    <AdminPanel
+      onClose={async () => {
+        await refreshCatalog();
+        navigate("/");
+      }}
+    />
   );
 }
 
@@ -48,7 +61,8 @@ export default function App() {
           <Route path="/about" element={<About />} />
 
           <Route path="/contact" element={<Contact />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<AdminRoute />} />
+          <Route path="/admin" element={<AdminRoute />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
 
